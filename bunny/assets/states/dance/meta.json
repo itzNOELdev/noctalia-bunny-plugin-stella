@@ -1,0 +1,8 @@
+{
+  "id": "dance",
+  "label": "Dance",
+  "frame_count": 8,
+  "frame_delay_ms": 80,
+  "width": 200,
+  "height": 200
+}
