@@ -1,13 +1,15 @@
 # Bunny — a cute pixel bunny that lives in your bar, breathes, and hops.
 #
-# Purely decorative: no external tools or permissions required. The bunny
-# idles with a gentle breathing sway, periodically hops on its own
+# Purely decorative by default: no external tools or permissions required.
+# The bunny idles with a gentle breathing sway, periodically hops on its own
 # (configurable), and can be clicked to pause/resume or right-clicked to
-# make it jump on demand.
+# make it jump on demand. Pick between two sprite styles — chunky "Bunny" or
+# smoother "Bunny+" — in the widget settings. Optional reactive mode makes
+# it hop along with your keystrokes (needs `evtest`, same as Bongo Cat).
 
 id = "stella/bunny"
 name = "Bunny"
-version = "1.0.0"
+version = "2.0.0"
 min_noctalia = "5.0.0"
 author = "stella"
 license = "GPL-3.0"
@@ -21,11 +23,23 @@ id = "bunny"
 entry = "bunny.luau"
 
   [[widget.setting]]
+  key = "bunny_type"
+  type = "select"
+  label_key = "settings.bunny_type.label"
+  description_key = "settings.bunny_type.description"
+  default = "pixel"
+  options = [
+    { value = "pixel", label_key = "settings.bunny_type.option_pixel" },
+    { value = "plus", label_key = "settings.bunny_type.option_plus" },
+  ]
+
+  [[widget.setting]]
   key = "auto_hop"
   type = "bool"
   label_key = "settings.auto_hop.label"
   description_key = "settings.auto_hop.description"
   default = true
+  visible_when = { key = "reactive_mode", values = ["false"] }
 
   [[widget.setting]]
   key = "hop_min_seconds"
@@ -62,3 +76,40 @@ entry = "bunny.luau"
   default = 26
   min = 14
   max = 64
+
+  [[widget.setting]]
+  key = "reactive_mode"
+  type = "bool"
+  label_key = "settings.reactive_mode.label"
+  description_key = "settings.reactive_mode.description"
+  default = false
+  advanced = true
+
+  [[widget.setting]]
+  key = "reactive_cooldown_ms"
+  type = "int"
+  label_key = "settings.reactive_cooldown_ms.label"
+  description_key = "settings.reactive_cooldown_ms.description"
+  default = 220
+  min = 0
+  max = 2000
+  visible_when = { key = "reactive_mode", values = ["true"] }
+  advanced = true
+
+  [[widget.setting]]
+  key = "input_devices"
+  type = "string_list"
+  label_key = "settings.input_devices.label"
+  description_key = "settings.input_devices.description"
+  default = []
+  visible_when = { key = "reactive_mode", values = ["true"] }
+  advanced = true
+
+  [[widget.setting]]
+  key = "executable_path"
+  type = "file"
+  label_key = "settings.executable_path.label"
+  description_key = "settings.executable_path.description"
+  default = "evtest"
+  visible_when = { key = "reactive_mode", values = ["true"] }
+  advanced = true

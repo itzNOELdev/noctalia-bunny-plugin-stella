@@ -4,10 +4,13 @@ A [Noctalia](https://github.com/noctalia-dev/noctalia-shell) v5 plugin source
 repo containing **Bunny** — a cute pixel bunny that lives in your bar, made
 for stella. It idles with a gentle breathing sway, hops on its own every so
 often, and can be clicked to pause/rest or right-clicked to make it hop on
-demand. Purely decorative, no external tools or permissions required.
+demand. Pick between two sprite styles (chunky "Bunny" or smoother "Bunny+")
+and optionally switch on reactive mode so it hops along with your typing.
+Purely decorative by default, no external tools or permissions required.
 
 <p align="center">
-  <img src="bunny/assets/jump_06.png" alt="Bunny mid-hop" width="128" />
+  <img src="bunny/assets/pixel/jump_06.png" alt="Bunny mid-hop, pixel style" width="128" />
+  <img src="bunny/assets/plus/jump_06.png" alt="Bunny+ mid-hop, plus style" width="128" />
 </p>
 
 ## Install
@@ -35,7 +38,9 @@ noctalia-bunny-plugin-stella/
   bunny/
     plugin.toml           # manifest: identity, widget entry, settings schema
     bunny.luau             # the bar widget entry script
-    assets/                # pre-rendered bunny sprite frames (idle/sitting/jump)
+    assets/                # pre-rendered bunny sprite frames, per style
+      pixel/                # "Bunny" — chunky pixel art (idle/sitting/jump)
+      plus/                 # "Bunny+" — same animations, smoother/higher-res
     translations/en.json   # setting labels/descriptions
     README.md
 ```

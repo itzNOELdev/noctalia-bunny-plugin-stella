@@ -1,5 +1,11 @@
 {
   "settings": {
+    "bunny_type": {
+      "label": "Bunny style",
+      "description": "Choose how pixelated the bunny looks",
+      "option_pixel": "Bunny — chunky pixel art",
+      "option_plus": "Bunny+ — smoother, higher-res"
+    },
     "auto_hop": {
       "label": "Hop on its own",
       "description": "Let the bunny hop by itself every so often, even if you never click it"
@@ -19,6 +25,22 @@
     "image_size": {
       "label": "Bunny size",
       "description": "Height and width of the bunny sprite in the bar, in pixels"
+    },
+    "reactive_mode": {
+      "label": "React to typing",
+      "description": "Make the bunny hop along with your keystrokes instead of hopping on its own. Requires evtest and configuring input_devices below."
+    },
+    "reactive_cooldown_ms": {
+      "label": "Reaction cooldown (ms)",
+      "description": "Minimum time between typing-triggered hops, so fast typing doesn't spam the animation"
+    },
+    "input_devices": {
+      "label": "Input devices",
+      "description": "Keyboard device paths or globs to read with evtest, e.g. /dev/input/by-id/*-event-kbd. Required for typing reactivity."
+    },
+    "executable_path": {
+      "label": "evtest path",
+      "description": "Path to the evtest executable used to read input devices"
     }
   }
 }

@@ -6,16 +6,22 @@
 --   left click   → pause/resume (the bunny sits down and rests when paused)
 --   right click  → make it hop right now
 --
--- Frames were rendered offline (see assets/) from the same jump/settle/breathe
--- motion curves as the reference bongocat-style bar pet, applied to a small
--- pixel-art bunny sprite instead of a font. Each animation is a short list of
--- pre-rendered PNGs; update() just steps through them on a timer, the same
--- way bongocat steps through font glyphs.
+-- Two sprite styles are bundled — pick one in the widget settings:
+--   "pixel" (Bunny)  → chunky, low-res retro pixel art
+--   "plus"  (Bunny+) → the same bunny, rendered smoother/higher-res
+-- Both live under assets/<style>/ with identical animation/frame naming, so
+-- switching styles is just a change of asset folder.
+--
+-- Optional reactive mode makes the bunny hop along with your keystrokes,
+-- the same way the bongocat widget reacts to typing — reads configured
+-- /dev/input devices with `evtest` via noctalia.runStream (no IPC, no
+-- per-keystroke process spawn). Off by default; fully decorative otherwise.
 
 noctalia.setUpdateInterval(60) -- ms per tick
 
 -- ── Frame tables ──────────────────────────────────────────────────────────
--- Counts must match the number of PNGs actually rendered into assets/.
+-- Counts must match the number of PNGs actually rendered into each style's
+-- assets/<style>/ folder.
 local FRAME_COUNTS = {
   idle = 14,
   sitting = 12,
@@ -31,11 +37,16 @@ local FRAME_MS = {
   jump = 70,
 }
 
-local function framePath(anim, index)
-  return string.format("assets/%s_%02d.png", anim, index)
+-- ── Config ────────────────────────────────────────────────────────────────
+local BUNNY_TYPE = barWidget.getConfig("bunny_type")
+if BUNNY_TYPE ~= "pixel" and BUNNY_TYPE ~= "plus" then
+  BUNNY_TYPE = "pixel"
 end
 
--- ── Config ────────────────────────────────────────────────────────────────
+local function framePath(anim, index)
+  return string.format("assets/%s/%s_%02d.png", BUNNY_TYPE, anim, index)
+end
+
 local AUTO_HOP = barWidget.getConfig("auto_hop")
 if AUTO_HOP == nil then AUTO_HOP = true end
 
@@ -48,6 +59,10 @@ if CLICK_TO_PAUSE == nil then CLICK_TO_PAUSE = true end
 
 local IMAGE_SIZE = tonumber(barWidget.getConfig("image_size")) or 26
 
+local REACTIVE_MODE = barWidget.getConfig("reactive_mode") == true
+local REACTIVE_COOLDOWN_MS = tonumber(barWidget.getConfig("reactive_cooldown_ms")) or 220
+if REACTIVE_COOLDOWN_MS < 0 then REACTIVE_COOLDOWN_MS = 0 end
+
 -- ── State ─────────────────────────────────────────────────────────────────
 local ANIM_IDLE = "idle"
 local ANIM_SITTING = "sitting"
@@ -58,6 +73,7 @@ local frameIndex = 0
 local frameElapsedMs = 0
 local paused = false
 local jumping = false
+local reactiveCooldownMs = 0
 
 local function randomHopDelaySeconds()
   return HOP_MIN + math.random() * (HOP_MAX - HOP_MIN)
@@ -85,6 +101,8 @@ end
 local function refreshTooltip()
   if paused then
     barWidget.setTooltip("Bunny is resting — click to wake it up")
+  elseif REACTIVE_MODE then
+    barWidget.setTooltip("Bunny — hops as you type. Click to pause, right-click to hop")
   else
     barWidget.setTooltip("Bunny — click to pause, right-click to make it hop")
   end
@@ -101,8 +119,22 @@ local function startJump()
   nextHopInMs = randomHopDelaySeconds() * 1000
 end
 
+-- A lighter hop trigger for reactive/typing mode: respects a short cooldown
+-- so a burst of keystrokes doesn't spam restart the jump animation.
+local function reactiveHop()
+  if paused or not REACTIVE_MODE then return end
+  if reactiveCooldownMs > 0 then return end
+  reactiveCooldownMs = REACTIVE_COOLDOWN_MS
+  startJump()
+  render()
+end
+
 function update()
   local dt = 60 -- matches noctalia.setUpdateInterval above
+
+  if reactiveCooldownMs > 0 then
+    reactiveCooldownMs = math.max(0, reactiveCooldownMs - dt)
+  end
 
   if paused then
     -- Still animate the sitting pose gently while paused.
@@ -116,8 +148,9 @@ function update()
     return
   end
 
-  -- Auto-hop scheduling (only while idle/resting, not mid-jump).
-  if AUTO_HOP and not jumping then
+  -- Auto-hop scheduling (only while idle/resting, not mid-jump). Disabled
+  -- automatically when reactive mode is on, since typing already drives hops.
+  if AUTO_HOP and not REACTIVE_MODE and not jumping then
     hopTimerMs += dt
     if hopTimerMs >= nextHopInMs then
       startJump()
@@ -184,4 +217,118 @@ function onIpc(event, payload)
     startJump()
     render()
   end
+end
+
+-- ── Reactive mode: hop along with keystrokes ─────────────────────────────
+-- Mirrors the bongocat widget's input reader: a single long-lived `evtest`
+-- stream per configured device, parsed line by line. No permissions beyond
+-- read access to the chosen /dev/input device(s) and `evtest` on PATH.
+if REACTIVE_MODE then
+  local function has(line, needle)
+    return line:find(needle, 1, true) ~= nil
+  end
+
+  local function onEvtestLine(line)
+    -- evtest prints one line per event, e.g.:
+    --   Event: time 1700.0, type 1 (EV_KEY), code 57 (KEY_SPACE), value 1
+    if not has(line, "EV_KEY") or has(line, "BTN_TOOL_") then
+      return
+    end
+    if has(line, "value 1") then
+      reactiveHop()
+    end
+  end
+
+  local function isAllowedInputPatternByte(byte)
+    return (byte >= 48 and byte <= 57) -- 0-9
+        or (byte >= 65 and byte <= 90) -- A-Z
+        or (byte >= 97 and byte <= 122) -- a-z
+        or byte == 47 -- /
+        or byte == 46 -- .
+        or byte == 95 -- _
+        or byte == 45 -- -
+        or byte == 58 -- :
+        or byte == 43 -- +
+        or byte == 42 -- *
+        or byte == 63 -- ?
+        or byte == 91 -- [
+        or byte == 93 -- ]
+  end
+
+  local function isSupportedInputPattern(pattern)
+    return pattern:match("^/dev/input/event") ~= nil
+        or pattern:match("^/dev/input/by%-id/") ~= nil
+        or pattern:match("^/dev/input/by%-path/") ~= nil
+  end
+
+  local function validateInputPattern(pattern)
+    if type(pattern) ~= "string" or pattern == "" then
+      return false
+    end
+    if pattern:find("..", 1, true) ~= nil or not isSupportedInputPattern(pattern) then
+      return false
+    end
+    for i = 1, #pattern do
+      if not isAllowedInputPatternByte(pattern:byte(i)) then
+        return false
+      end
+    end
+    return true
+  end
+
+  local function startInputReader()
+    local devices = barWidget.getConfig("input_devices")
+    if devices == nil then
+      noctalia.notify("Bunny", "Reactive mode is on but no input_devices are configured yet.")
+      return
+    end
+    if type(devices) ~= "table" then
+      noctalia.notifyError("Bunny", "Invalid input_devices (expected a list of /dev/input paths or globs)")
+      return
+    end
+
+    local patterns = {}
+    local seen = {}
+    local warnedEventPath = false
+    for _, pattern in ipairs(devices) do
+      if not validateInputPattern(pattern) then
+        noctalia.notifyError("Bunny", `Invalid input_devices entry: {tostring(pattern)}`)
+        return
+      end
+      if pattern:match("^/dev/input/event") ~= nil and not warnedEventPath then
+        warnedEventPath = true
+        noctalia.notify("Bunny", "Prefer /dev/input/by-id or /dev/input/by-path; /dev/input/eventN can change.")
+      end
+      if seen[pattern] == nil then
+        seen[pattern] = true
+        table.insert(patterns, pattern)
+      end
+    end
+    if #patterns == 0 then
+      return
+    end
+
+    local executable = barWidget.getConfig("executable_path")
+    if executable == nil or executable == "" then
+      executable = "evtest"
+    end
+
+    if not noctalia.commandExists(executable) then
+      noctalia.notifyError("Bunny", "the evtest path is invalid (" .. executable .. ") — cannot read input devices")
+      return
+    end
+
+    -- single-quote for the shell so paths with spaces or metacharacters are safe
+    local quotedExecutable = "'" .. executable:gsub("'", "'\''") .. "'"
+
+    local command = "for device in " .. table.concat(patterns, " ")
+      .. '; do [ -e "$device" ] || continue; ' .. quotedExecutable
+      .. ' "$device" 2>/dev/null & done; wait'
+
+    if not noctalia.runStream(command, onEvtestLine) then
+      noctalia.notifyError("Bunny", "Unable to start input device reader")
+    end
+  end
+
+  startInputReader()
 end
