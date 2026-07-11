@@ -1,21 +1,20 @@
-# Bunny — a cute pixel bunny that lives in your bar, breathes, and hops.
+# Bunny — a cute bunny that lives in your bar and cycles through moods.
 #
-# Purely decorative by default: no external tools or permissions required.
-# The bunny idles with a gentle breathing sway, periodically hops on its own
-# (configurable), and can be clicked to pause/resume or right-clicked to
-# make it jump on demand. Pick between two sprite styles — chunky "Bunny" or
-# smoother "Bunny+" — in the widget settings. Optional reactive mode makes
-# it hop along with your keystrokes (needs `evtest`, same as Bongo Cat).
+# Each mood (eating, playing, sleeping, ...) is a small looping GIF-based
+# animation. The bunny loops whatever mood is current forever; click it to
+# move to the next one. New moods can be added by dropping a GIF in
+# assets/source_gifs/ and running tools/build_states.py — no code changes,
+# no new settings, no rebuild of this file needed. See README.md.
 
 id = "stella/bunny"
 name = "Bunny"
-version = "2.0.0"
+version = "3.0.0"
 min_noctalia = "5.0.0"
 author = "stella"
 license = "GPL-3.0"
 dependencies = []
 icon = "paw"
-description = "A cute pixel bunny that idles, hops, and rests in your bar."
+description = "A cute bunny that loops through moods (eating, playing, sleeping, ...) — click to cycle."
 tags = ["fun", "animation"]
 
 [[widget]]
@@ -23,93 +22,20 @@ id = "bunny"
 entry = "bunny.luau"
 
   [[widget.setting]]
-  key = "bunny_type"
-  type = "select"
-  label_key = "settings.bunny_type.label"
-  description_key = "settings.bunny_type.description"
-  default = "pixel"
-  options = [
-    { value = "pixel", label_key = "settings.bunny_type.option_pixel" },
-    { value = "plus", label_key = "settings.bunny_type.option_plus" },
-  ]
-
-  [[widget.setting]]
-  key = "auto_hop"
-  type = "bool"
-  label_key = "settings.auto_hop.label"
-  description_key = "settings.auto_hop.description"
-  default = true
-  visible_when = { key = "reactive_mode", values = ["false"] }
-
-  [[widget.setting]]
-  key = "hop_min_seconds"
-  type = "double"
-  label_key = "settings.hop_min_seconds.label"
-  description_key = "settings.hop_min_seconds.description"
-  default = 6
-  min = 1
-  max = 120
-  visible_when = { key = "auto_hop", values = ["true"] }
-
-  [[widget.setting]]
-  key = "hop_max_seconds"
-  type = "double"
-  label_key = "settings.hop_max_seconds.label"
-  description_key = "settings.hop_max_seconds.description"
-  default = 16
-  min = 1
-  max = 300
-  visible_when = { key = "auto_hop", values = ["true"] }
-
-  [[widget.setting]]
-  key = "click_to_pause"
-  type = "bool"
-  label_key = "settings.click_to_pause.label"
-  description_key = "settings.click_to_pause.description"
-  default = true
-
-  [[widget.setting]]
-  key = "image_size"
+  key = "image_height"
   type = "int"
-  label_key = "settings.image_size.label"
-  description_key = "settings.image_size.description"
-  default = 26
+  label_key = "settings.image_height.label"
+  description_key = "settings.image_height.description"
+  default = 32
   min = 14
-  max = 64
+  max = 128
 
   [[widget.setting]]
-  key = "reactive_mode"
-  type = "bool"
-  label_key = "settings.reactive_mode.label"
-  description_key = "settings.reactive_mode.description"
-  default = false
-  advanced = true
-
-  [[widget.setting]]
-  key = "reactive_cooldown_ms"
-  type = "int"
-  label_key = "settings.reactive_cooldown_ms.label"
-  description_key = "settings.reactive_cooldown_ms.description"
-  default = 220
-  min = 0
-  max = 2000
-  visible_when = { key = "reactive_mode", values = ["true"] }
-  advanced = true
-
-  [[widget.setting]]
-  key = "input_devices"
-  type = "string_list"
-  label_key = "settings.input_devices.label"
-  description_key = "settings.input_devices.description"
-  default = []
-  visible_when = { key = "reactive_mode", values = ["true"] }
-  advanced = true
-
-  [[widget.setting]]
-  key = "executable_path"
-  type = "file"
-  label_key = "settings.executable_path.label"
-  description_key = "settings.executable_path.description"
-  default = "evtest"
-  visible_when = { key = "reactive_mode", values = ["true"] }
+  key = "playback_speed"
+  type = "double"
+  label_key = "settings.playback_speed.label"
+  description_key = "settings.playback_speed.description"
+  default = 1.0
+  min = 0.25
+  max = 3.0
   advanced = true

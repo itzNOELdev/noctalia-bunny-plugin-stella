@@ -1,16 +1,15 @@
 # noctalia-bunny-plugin-stella
 
 A [Noctalia](https://github.com/noctalia-dev/noctalia-shell) v5 plugin source
-repo containing **Bunny** — a cute pixel bunny that lives in your bar, made
-for stella. It idles with a gentle breathing sway, hops on its own every so
-often, and can be clicked to pause/rest or right-clicked to make it hop on
-demand. Pick between two sprite styles (chunky "Bunny" or smoother "Bunny+")
-and optionally switch on reactive mode so it hops along with your typing.
-Purely decorative by default, no external tools or permissions required.
+repo containing **Bunny** — a cute bunny that lives in your bar and loops
+through moods (eating, playing, sleeping, ...). Click it to move to the next
+mood; right-click to pause. Purely decorative, no external tools or
+permissions required.
 
 <p align="center">
-  <img src="bunny/assets/pixel/jump_06.png" alt="Bunny mid-hop, pixel style" width="128" />
-  <img src="bunny/assets/plus/jump_06.png" alt="Bunny+ mid-hop, plus style" width="128" />
+  <img src="bunny/assets/states/eating/frame_000.png" alt="Bunny eating" width="110" />
+  <img src="bunny/assets/states/playing/frame_000.png" alt="Bunny playing" width="110" />
+  <img src="bunny/assets/states/sleeping/frame_000.png" alt="Bunny sleeping" width="140" />
 </p>
 
 ## Install
@@ -22,7 +21,8 @@ the `bunny` widget to a bar from the widget picker:
 noctalia msg plugins source add stella-bunny git https://github.com/itzNOELdev/noctalia-bunny-plugin-stella
 ```
 
-See [`bunny/README.md`](bunny/README.md) for widget usage, settings, and IPC.
+See [`bunny/README.md`](bunny/README.md) for widget usage, settings, IPC, and
+— most importantly — how to add your own moods.
 
 ## Repo layout
 
@@ -34,20 +34,30 @@ compat-checked without a full clone.
 
 ```
 noctalia-bunny-plugin-stella/
-  catalog.toml           # auto-generated, do not edit by hand (see below)
+  catalog.toml              # auto-generated, do not edit by hand (see below)
+  Makefile                  # `make build` -> tools/build_states.py
+  tools/
+    build_states.py          # turns assets/source_gifs/*.gif into playable states
   bunny/
-    plugin.toml           # manifest: identity, widget entry, settings schema
-    bunny.luau             # the bar widget entry script
-    assets/                # pre-rendered bunny sprite frames, per style
-      pixel/                # "Bunny" — chunky pixel art (idle/sitting/jump)
-      plus/                 # "Bunny+" — same animations, smoother/higher-res
-    translations/en.json   # setting labels/descriptions
+    plugin.toml               # manifest: identity, widget entry, settings schema
+    bunny.luau                 # the bar widget entry script — reads manifest.json,
+                                # cycles frames on a timer, has no hardcoded mood list
+    assets/
+      source_gifs/               # your original GIFs, one per mood — eating.gif etc.
+      states/                     # generated: per-mood extracted PNG frames + timing
+        manifest.json               # ordered list of mood ids, regenerated on build
+        eating/  playing/  sleeping/ # frame_NNN.png + meta.json per mood
+    translations/en.json      # setting labels/descriptions
     README.md
 ```
 
-`catalog.toml` is rebuilt automatically by a GitHub Action
-(`.github/workflows/update-catalog.py`) whenever `bunny/plugin.toml` changes
-on `main` — don't edit it by hand.
+Adding a mood is: drop a GIF in `assets/source_gifs/`, run `make build` (or
+`python3 tools/build_states.py`), reload the widget. No Luau edits, no new
+settings, no manifest hand-editing. Full details in
+[`bunny/README.md`](bunny/README.md#adding-a-new-mood).
+
+`catalog.toml` is rebuilt automatically by a GitHub Action whenever
+`bunny/plugin.toml` changes on `main` — don't edit it by hand.
 
 ## Editor setup
 
@@ -57,11 +67,18 @@ entry callbacks, …) for editor autocomplete and typo diagnostics via
 and `.luaurc` already point at it and set `nonstrict` mode, matching the
 `--!nonstrict` directive at the top of `bunny.luau`.
 
+## Why frames instead of playing the GIFs directly
+
+Noctalia's widget image APIs only display static images — there's no
+built-in animated-GIF playback. So `tools/build_states.py` decomposes each
+GIF into a PNG frame sequence once, and `bunny.luau` steps through those
+frames on a timer at runtime. End result still looks and feels like the GIF
+looping; see [`bunny/README.md`](bunny/README.md#why-gifs-arent-played-directly)
+for the full explanation.
+
 ## Credits
 
-- Bunny sprite and animation frames created for this plugin; motion timing
-  (hop arc, settle, breathing sway) adapted from a bongocat-style bar-pet
-  reference animation.
+- Bunny GIFs (eating, playing, sleeping) supplied by the plugin author.
 - Built against the [Noctalia plugin docs](https://noctalia.dev/v5/plugins/)
   and the [official-plugins](https://github.com/noctalia-dev/official-plugins)
   `bongocat` plugin as a structural reference.

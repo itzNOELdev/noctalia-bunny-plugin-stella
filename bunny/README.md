@@ -1,8 +1,8 @@
 # Bunny
 
-Bunny adds a bar widget with a cute pixel-art bunny that breathes, sways,
-rests, and hops — a calmer, purely decorative cousin of Bongo Cat. It can
-also be switched into a reactive mode that hops along with your typing.
+Bunny adds a bar widget with a cute bunny that loops through moods — eating,
+playing, sleeping, or whatever moods you've added — each one a small looping
+animation built from a real GIF.
 
 ## Plugin
 
@@ -15,88 +15,74 @@ also be switched into a reactive mode that hops along with your typing.
 
 Add the `bunny` widget to a bar from Noctalia's widget picker.
 
-- **Left click** — pause the bunny (it sits down and rests) or wake it back up.
-- **Right click** — make it hop immediately.
+- **Left click** — move to the next mood (wraps back to the first).
+- **Right click** — pause/resume the current animation.
 
-By default no external tools, permissions, or device access are required —
-the bunny is a fully self-contained pre-rendered sprite animation, driven
-purely by a timer. Reactive mode (off by default) opts in to reading a
-keyboard device, see [Reactive mode](#reactive-mode) below.
+Whichever mood is current just loops forever on its own — the bunny never
+changes mood by itself, only when you click it.
 
-## Bunny styles
+No external tools or device permissions are required; it's a fully
+self-contained, pre-rendered animation.
 
-Pick a look in the widget settings (`bunny_type`):
+## Why GIFs aren't played directly
 
-- **Bunny** (`pixel`) — chunky, low-resolution retro pixel art.
-- **Bunny+** (`plus`) — the exact same bunny and animations, rendered
-  smoother and at a higher effective resolution.
+Noctalia's widget image APIs (`barWidget.setImage`, `ui.image`) only display
+static images — there's no built-in "play this animated GIF" control. So each
+source GIF is decomposed **once, at build time** into a numbered PNG frame
+sequence plus a small timing file, and `bunny.luau` steps through those
+frames on a timer at runtime. From the user's point of view it still just
+looks like the GIF looping — the frame extraction is an invisible build step,
+never something you do by hand per-launch.
 
-Both styles ship the same three animations and frame counts, so switching
-between them mid-use doesn't change timing or behavior — only how pixelated
-the sprite looks.
+## Adding a new mood
 
-## Reactive mode
+This is the entire process — no Luau code, no new settings, no manifest to
+edit by hand:
 
-Turn on `reactive_mode` to make the bunny hop each time you press a key,
-instead of hopping on a random timer. It reuses the same input-reading
-approach as the Bongo Cat widget:
+1. Drop a GIF at `assets/source_gifs/<name>.gif` (the filename becomes the
+   mood's internal id, e.g. `grooming.gif` → `grooming`).
+2. From the plugin's repo root, run:
+   ```sh
+   python3 tools/build_states.py
+   ```
+   (needs Pillow: `pip install Pillow --break-system-packages`)
+3. Reload the widget (or restart Noctalia).
 
-- Requires `evtest` on `PATH` (or a custom path via `executable_path`).
-- Requires at least one device configured in `input_devices`, using stable
-  `/dev/input/by-id/` or `/dev/input/by-path/` entries where possible —
-  `/dev/input/eventN` names can change after device or kernel updates.
-- Requires read permission on the selected device(s), typically by adding
-  your user to the `input` group and logging in again.
-- A short cooldown (`reactive_cooldown_ms`, default 220ms) prevents fast
-  typing from spamming the jump animation back-to-back.
+The script extracts every frame of the GIF to
+`assets/states/<name>/frame_NNN.png`, writes `assets/states/<name>/meta.json`
+(frame count, average per-frame delay, and the GIF's pixel dimensions so its
+aspect ratio is preserved in the bar), and regenerates
+`assets/states/manifest.json` — the ordered list `bunny.luau` reads at load
+time to know which moods exist and in what order to cycle them (alphabetical
+by filename). Removing a GIF from `source_gifs/` and re-running the script
+also removes its generated state automatically.
 
-When `reactive_mode` is on, the automatic random-timer hopping (`auto_hop`)
-is disabled, since typing already drives the bunny. Left click / right
-click / IPC controls keep working exactly as before.
+Want a nicer display name than the auto-generated Title Case of the
+filename? Add an entry to the small `OVERRIDES` dict at the top of
+`tools/build_states.py`, e.g.:
+```python
+OVERRIDES = {
+    "eating": {"label": "Snack time"},
+}
+```
 
 ## Settings
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `bunny_type` | `select` | `pixel` | Sprite style: `pixel` (Bunny) or `plus` (Bunny+). |
-| `auto_hop` | `bool` | `true` | Let the bunny hop on its own every so often. Hidden while reactive mode is on. |
-| `hop_min_seconds` | `double` | `6` | Shortest time between automatic hops. |
-| `hop_max_seconds` | `double` | `16` | Longest time between automatic hops. |
-| `click_to_pause` | `bool` | `true` | Left click pauses/resumes the bunny. When off, left click hops instead. |
-| `image_size` | `int` | `26` | Size (px) of the bunny sprite in the bar. |
-| `reactive_mode` | `bool` | `false` | Hop along with keystrokes instead of a random timer. |
-| `reactive_cooldown_ms` | `int` | `220` | Minimum time between typing-triggered hops. |
-| `input_devices` | `string_list` | `[]` | Keyboard device paths/globs read with `evtest`. Required for reactive mode. |
-| `executable_path` | `file` | `evtest` | Path to the input reader executable. |
+| `image_height` | int | 32 | Height of the bunny in the bar, in pixels. Width is derived per-mood from that mood's own GIF aspect ratio, so nothing gets stretched. |
+| `playback_speed` | double | 1.0 | Multiplier applied to every mood's frame timing. |
 
-## IPC
-
-The widget accepts simple runtime controls:
+## Runtime controls
 
 ```sh
+noctalia msg plugin stella/bunny:bunny focused next
 noctalia msg plugin stella/bunny:bunny focused pause
 noctalia msg plugin stella/bunny:bunny focused resume
-noctalia msg plugin stella/bunny:bunny focused toggle
-noctalia msg plugin stella/bunny:bunny focused hop
+noctalia msg plugin stella/bunny:bunny focused toggle_pause
+noctalia msg plugin stella/bunny:bunny focused set_state eating
 ```
-
-## Animation
-
-The bunny cycles through short sequences of pre-rendered PNG frames, kept in
-sync across both styles:
-
-- `idle` — gentle breathing sway while resting on the bar (default state).
-- `sitting` — a settled, low pose used while paused.
-- `jump` — a full hop arc (crouch → launch → apex → land → settle) triggered
-  by the auto-hop timer, a keystroke in reactive mode, or a right click.
-
-Each style's frames live in its own folder (`assets/pixel/`, `assets/plus/`)
-with identical animation names and frame counts, so the widget only needs to
-pick a folder and step through images on a timer — no runtime image
-transforms required.
 
 ## CREDITS
 
-- Sprite and animation frames created for this plugin.
-- Reactive-mode input reading adapted from the Bongo Cat widget's `evtest`
-  stream reader pattern.
+- Bunny GIFs supplied by the plugin author.
