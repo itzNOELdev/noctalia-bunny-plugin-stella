@@ -1,0 +1,24 @@
+{
+  "settings": {
+    "auto_hop": {
+      "label": "Hop on its own",
+      "description": "Let the bunny hop by itself every so often, even if you never click it"
+    },
+    "hop_min_seconds": {
+      "label": "Shortest time between hops (seconds)",
+      "description": "The bunny will wait at least this long before hopping again"
+    },
+    "hop_max_seconds": {
+      "label": "Longest time between hops (seconds)",
+      "description": "The bunny will wait at most this long before hopping again"
+    },
+    "click_to_pause": {
+      "label": "Click to pause/resume",
+      "description": "Left click pauses or wakes the bunny; when off, left click makes it hop instead"
+    },
+    "image_size": {
+      "label": "Bunny size",
+      "description": "Height and width of the bunny sprite in the bar, in pixels"
+    }
+  }
+}

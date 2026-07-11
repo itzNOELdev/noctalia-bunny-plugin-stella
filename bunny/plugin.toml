@@ -1,0 +1,64 @@
+# Bunny — a cute pixel bunny that lives in your bar, breathes, and hops.
+#
+# Purely decorative: no external tools or permissions required. The bunny
+# idles with a gentle breathing sway, periodically hops on its own
+# (configurable), and can be clicked to pause/resume or right-clicked to
+# make it jump on demand.
+
+id = "stella/bunny"
+name = "Bunny"
+version = "1.0.0"
+min_noctalia = "5.0.0"
+author = "stella"
+license = "GPL-3.0"
+dependencies = []
+icon = "paw"
+description = "A cute pixel bunny that idles, hops, and rests in your bar."
+tags = ["fun", "animation"]
+
+[[widget]]
+id = "bunny"
+entry = "bunny.luau"
+
+  [[widget.setting]]
+  key = "auto_hop"
+  type = "bool"
+  label_key = "settings.auto_hop.label"
+  description_key = "settings.auto_hop.description"
+  default = true
+
+  [[widget.setting]]
+  key = "hop_min_seconds"
+  type = "double"
+  label_key = "settings.hop_min_seconds.label"
+  description_key = "settings.hop_min_seconds.description"
+  default = 6
+  min = 1
+  max = 120
+  visible_when = { key = "auto_hop", values = ["true"] }
+
+  [[widget.setting]]
+  key = "hop_max_seconds"
+  type = "double"
+  label_key = "settings.hop_max_seconds.label"
+  description_key = "settings.hop_max_seconds.description"
+  default = 16
+  min = 1
+  max = 300
+  visible_when = { key = "auto_hop", values = ["true"] }
+
+  [[widget.setting]]
+  key = "click_to_pause"
+  type = "bool"
+  label_key = "settings.click_to_pause.label"
+  description_key = "settings.click_to_pause.description"
+  default = true
+
+  [[widget.setting]]
+  key = "image_size"
+  type = "int"
+  label_key = "settings.image_size.label"
+  description_key = "settings.image_size.description"
+  default = 26
+  min = 14
+  max = 64
