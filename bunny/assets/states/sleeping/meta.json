@@ -1,0 +1,8 @@
+{
+  "id": "sleeping",
+  "label": "Sleeping",
+  "frame_count": 19,
+  "frame_delay_ms": 132,
+  "width": 500,
+  "height": 500
+}

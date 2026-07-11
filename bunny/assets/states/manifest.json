@@ -1,7 +1,6 @@
 {
   "states": [
-    "eating",
-    "playing",
-    "sleeping"
+    "sleeping",
+    "walking"
   ]
 }
