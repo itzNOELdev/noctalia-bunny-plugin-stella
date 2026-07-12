@@ -1,25 +1,25 @@
 --!nonstrict
--- Bunny — a cute bunny that lives in your bar and cycles through moods.
+-- Bunny — a cute bunny that lives in your bar.
 --
--- Each "state" (eating, playing, sleeping, ...) is a looping animation built
--- from a real GIF. The bunny sits on whichever state is current and just
--- loops it forever — it only changes state when you click it:
---   left click   → advance to the next state (wraps back to the first)
---   right click  → pause/resume the current animation
+-- Three states, each a looping/one-shot animation built from real frames:
+--   idle   → default resting loop
+--   sleep  → eyes closed, "z"s drifting up, looping
+--   jump   → one-shot hop animation, then returns to whichever of
+--            idle/sleep was active before the jump
 --
--- ── Adding a new state ────────────────────────────────────────────────────
--- This script has NO hardcoded list of states — it reads
--- assets/states/manifest.json at load time and cycles through whatever is
--- listed there. To add a new mood:
---   1. Drop a GIF at assets/source_gifs/<name>.gif
---   2. Run `python3 tools/build_states.py` from the plugin's repo root
---   3. Reload the widget
--- That script decomposes the GIF into a numbered PNG frame sequence plus a
--- small meta.json (frame count + timing), and regenerates manifest.json.
--- No changes to this file are ever needed. (Why not just play the GIF file
--- directly? Noctalia's widget image element only shows static images — see
--- README.md for details — so the frames are pre-extracted once at build
--- time and this script "plays" them back on a timer instead.)
+--   left click   → toggle between idle and sleep
+--   right click  → play the jump animation once
+--
+-- ── State assets ──────────────────────────────────────────────────────────
+-- assets/states/manifest.json lists which state ids exist ("idle", "sleep",
+-- "jump"). Each one has its own assets/states/<id>/ folder with a numbered
+-- frame_NNN.png sequence plus a meta.json (frame_count, frame_delay_ms,
+-- width, height). Frames are pre-rendered PNGs rather than a live GIF,
+-- since Noctalia's widget image element only shows static images — this
+-- script just "plays" the frame sequence back on a timer instead.
+-- "idle" and "sleep" loop forever; "jump" is a one-shot sequence that plays
+-- through once and then hands control back to whichever of idle/sleep was
+-- active before it fired (see startJump()/update() below).
 
 noctalia.setUpdateInterval(50) -- ms per tick; state delays are usually >= 70ms
 
@@ -30,7 +30,6 @@ if PLAYBACK_SPEED <= 0 then PLAYBACK_SPEED = 1.0 end
 
 -- ── Load the manifest + per-state metadata ───────────────────────────────
 local states = {} -- ordered array of { id, label, frame_count, frame_delay_ms, width, height }
-local stateIndex = 1
 
 local function loadStates()
   local manifestText, err = noctalia.readFile("assets/states/manifest.json")
@@ -65,22 +64,27 @@ end
 
 loadStates()
 
+local statesById = {}
+for _, s in ipairs(states) do
+  statesById[s.id] = s
+end
+
 -- ── Animation state ───────────────────────────────────────────────────────
+-- moodId is the "resting" mood (idle or sleep) that's active whenever we're
+-- not mid-jump. Jumping is a separate one-shot overlay: it plays through
+-- once, then control returns to whichever mood was active before it fired.
+local moodId = "idle"
+local jumping = false
 local frameIndex = 0
 local frameElapsedMs = 0
-local paused = false
-
-local function currentState()
-  return states[stateIndex]
-end
 
 local function framePath(state, index)
   return string.format("assets/states/%s/frame_%03d.png", state.id, index)
 end
 
 local function displaySize(state)
-  -- Preserve the GIF's own aspect ratio instead of stretching it into a
-  -- square, since states can come from GIFs of very different proportions.
+  -- Preserve each state's own aspect ratio instead of stretching it into a
+  -- square, since idle/sleep/jump all have different canvas proportions.
   if state.width <= 0 or state.height <= 0 then
     return IMAGE_HEIGHT, IMAGE_HEIGHT
   end
@@ -89,21 +93,30 @@ local function displaySize(state)
   return width, height
 end
 
+local function activeState()
+  if jumping and statesById["jump"] ~= nil then
+    return statesById["jump"]
+  end
+  return statesById[moodId]
+end
+
 local function refreshTooltip()
-  local state = currentState()
+  local state = activeState()
   if state == nil then
     barWidget.setTooltip("Bunny (no states found — see README.md)")
     return
   end
-  if paused then
-    barWidget.setTooltip(state.label .. " — paused. Right click to resume, left click to change mood")
+  if jumping then
+    barWidget.setTooltip("Jump! — right click to jump again")
+  elseif moodId == "sleep" then
+    barWidget.setTooltip("Sleeping — left click to wake up, right click to jump")
   else
-    barWidget.setTooltip(state.label .. " — left click to change mood, right click to pause")
+    barWidget.setTooltip("Idle — left click to sleep, right click to jump")
   end
 end
 
 local function render()
-  local state = currentState()
+  local state = activeState()
   if state == nil then
     return
   end
@@ -114,12 +127,24 @@ end
 refreshTooltip()
 render()
 
-local function setState(index)
-  local count = #states
-  if count == 0 then
+local function setMood(id)
+  if statesById[id] == nil then
     return
   end
-  stateIndex = ((index - 1) % count) + 1
+  moodId = id
+  if not jumping then
+    frameIndex = 0
+    frameElapsedMs = 0
+  end
+  refreshTooltip()
+  render()
+end
+
+local function startJump()
+  if statesById["jump"] == nil then
+    return
+  end
+  jumping = true
   frameIndex = 0
   frameElapsedMs = 0
   refreshTooltip()
@@ -127,11 +152,7 @@ local function setState(index)
 end
 
 function update()
-  if paused or #states == 0 then
-    return
-  end
-
-  local state = currentState()
+  local state = activeState()
   if state == nil or state.frame_count <= 1 then
     return
   end
@@ -144,38 +165,51 @@ function update()
 
   if frameElapsedMs >= frameMs then
     frameElapsedMs -= frameMs
-    frameIndex = (frameIndex + 1) % state.frame_count
+
+    if jumping then
+      frameIndex += 1
+      if frameIndex >= state.frame_count then
+        -- Jump's one-shot sequence finished — settle back into whichever
+        -- mood (idle/sleep) was active before the jump.
+        jumping = false
+        frameIndex = 0
+        refreshTooltip()
+      end
+    else
+      frameIndex = (frameIndex + 1) % state.frame_count
+    end
+
     render()
   end
 end
 
 function onClick()
-  setState(stateIndex + 1)
+  if jumping then
+    return -- ignore mood toggles mid-jump
+  end
+  setMood(moodId == "idle" and "sleep" or "idle")
 end
 
 function onRightClick()
-  paused = not paused
-  refreshTooltip()
+  startJump()
 end
 
 function onIpc(event, payload)
-  if event == "next" then
-    setState(stateIndex + 1)
-  elseif event == "pause" then
-    paused = true
-    refreshTooltip()
-  elseif event == "resume" then
-    paused = false
-    refreshTooltip()
-  elseif event == "toggle_pause" then
-    paused = not paused
-    refreshTooltip()
+  if event == "wake" then
+    setMood("idle")
+  elseif event == "sleep" then
+    setMood("sleep")
+  elseif event == "toggle_mood" then
+    if not jumping then
+      setMood(moodId == "idle" and "sleep" or "idle")
+    end
+  elseif event == "jump" then
+    startJump()
   elseif event == "set_state" and type(payload) == "string" then
-    for i, state in ipairs(states) do
-      if state.id == payload then
-        setState(i)
-        break
-      end
+    if payload == "jump" then
+      startJump()
+    else
+      setMood(payload)
     end
   end
 end

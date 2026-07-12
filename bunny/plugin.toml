@@ -1,20 +1,18 @@
-# Bunny — a cute bunny that lives in your bar and cycles through moods.
+# Bunny — a cute bunny that lives in your bar.
 #
-# Each mood (eating, playing, sleeping, ...) is a small looping GIF-based
-# animation. The bunny loops whatever mood is current forever; click it to
-# move to the next one. New moods can be added by dropping a GIF in
-# assets/source_gifs/ and running tools/build_states.py — no code changes,
-# no new settings, no rebuild of this file needed. See README.md.
+# Idles by default, naps when you left-click it (left-click again to wake
+# it back up), and hops with a right-click — the hop always lands back in
+# whichever mood (idle/sleep) was active before it fired.
 
 id = "stella/bunny"
 name = "Bunny"
-version = "3.0.0"
+version = "3.1.0"
 min_noctalia = "5.0.0"
 author = "stella"
 license = "GPL-3.0"
 dependencies = []
 icon = "paw"
-description = "A cute bunny that loops through moods (eating, playing, sleeping, ...) — click to cycle."
+description = "A cute bunny that idles, naps, and hops — left click to toggle sleep, right click to jump."
 tags = ["fun", "animation"]
 
 [[widget]]
