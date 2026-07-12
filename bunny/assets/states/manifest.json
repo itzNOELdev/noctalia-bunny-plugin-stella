@@ -1,7 +1,7 @@
 {
   "states": [
-    "dance",
-    "hopping",
-    "loving"
+    "idle",
+    "jump",
+    "sleep"
   ]
 }
